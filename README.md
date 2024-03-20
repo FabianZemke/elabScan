@@ -29,7 +29,7 @@ LinkID = https://xyz
 * Link ID is the link to your excel table which has the first, last names and their abbreviation present. Currently it reaches a tubcloud Excel file with a worksheet called "userid".
 
 ## More information
-[See the Wiki for more information](https://git.tu-berlin.de/ceramics/ceramscan-development/ceramscan/-/wikis/home)
+[See the Wiki for more information](https://github.com/FabianZemke/elabScan/wiki)
 
 ## Support
 In case of questions, comments or bug reports open an Issue.

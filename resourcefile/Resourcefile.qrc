@@ -1,0 +1,38 @@
+<RCC>
+  <qresource prefix="Images">
+    <file>view-show-all-icon.svg</file>
+    <file>info-information-icon.svg</file>
+    <file>info-information-icon_90.svg</file>
+    <file>myQR.png</file>
+    <file>restart-computer-icon.svg</file>
+    <file>complete-icon.svg</file>
+    <file>remove-icon.svg</file>
+    <file>printer-icon.svg</file>
+    <file>qr-code-icon.svg</file>
+    <file>open-folder-outline-icon.svg</file>
+    <file>save-all-files-icon.svg</file>
+    <file>create-task-icon.svg</file>
+    <file>hazard-acute-toxicity-icon.svg</file>
+    <file>hazard-corrosive-icon.svg</file>
+    <file>hazard-environmental-icon.svg</file>
+    <file>hazard-explosive-icon.svg</file>
+    <file>hazard-flammable-icon.svg</file>
+    <file>hazard-harmful-icon.svg</file>
+    <file>hazard-oxidising-icon.svg</file>
+    <file>hazard-serious-health-icon.svg</file>
+    <file>task-sync-icon.svg</file>
+    <file>curved-arrow-back-outline-icon.svg</file>
+    <file>forward-arrow-outline-icon.svg</file>
+    <file>wood-icon_90.svg</file>
+    <file>wood-icon.svg</file>
+    <file>chemical-engineering-icon.svg</file>
+    <file>repair-service-icon.svg</file>
+    <file>book-research-icon_90.svg</file>
+    <file>pencil-square-outline-icon_90.svg</file>
+    <file>qr-code-scan-icon_90.svg</file>
+    <file>book-research-icon.svg</file>
+    <file>pencil-square-outline-icon.svg</file>
+    <file>qr-code-scan-icon.svg</file>
+    <file>homepage-icon_90.svg</file>
+  </qresource>
+</RCC>

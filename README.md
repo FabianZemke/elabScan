@@ -1,5 +1,5 @@
 # elabScan
-This project is intended to provide a software for creating sampleIDs, which can be printed as QR code, saved as a PNG or uploaded into the electronic laboratory notebook "elabFTW". 
+This project is intended to provide a software for creating sampleIDs, which can be printed as QR code, saved as a PNG or uploaded into the electronic laboratory notebook "elabFTW". The program was originally programmed under the name "CeramScan" at the Chair of Advanced Ceramic Materials at the Technische Universität Berlin. It will be adapted soon(TM) to be under the name elabScan.
 
 ## Installation
 
@@ -32,7 +32,7 @@ LinkID = https://xyz
 [See the Wiki for more information](https://git.tu-berlin.de/ceramics/ceramscan-development/ceramscan/-/wikis/home)
 
 ## Support
-In case of questions, comments or bug reports, inform Fabian (fabian.zemke@ceramics.tu-berlin.de) with the subject "CeramScan".
+In case of questions, comments or bug reports open an Issue.
 
 ## Roadmap
 Under construction

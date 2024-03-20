@@ -1,5 +1,6 @@
 API_Key = Test
 Category_ID = 6
+Chem_ID = 11
 ElabFTW_URL = https://xyz/api/v2/
 Institution = YOUR INSTITUTION
 StartingYear = 2011

@@ -2194,3 +2194,4 @@ class Ui_MainWindow(object):
         self.AddChemical_tab.setTabText(self.AddChemical_tab.indexOf(self.ChemicalToElab_tab), QCoreApplication.translate("MainWindow", u"Chemical to ElabFTW", None))
         self.Main_tab.setTabText(self.Main_tab.indexOf(self.Chemical_Main_tab), "")
     # retranslateUi
+

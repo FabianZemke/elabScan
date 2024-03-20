@@ -1,0 +1,254 @@
+{
+    "__templateversion__": "Chemical Schema Version 0.91",
+    "__comment__": "This is a template for the chemical database elabftw. It is based on the Pubchem database and the GHS pictograms. It is meant to be used with the elabftw plugin 'extra_fields'. Do not change the four extra_fields_groups",
+
+    "elabftw": {
+        "display_main_text": false,
+        "extra_fields_groups": [
+        {
+            "id": 1,
+            "name": "Current Status"
+        },
+        {
+            "id": 2,
+            "name": "Supplier and Ordering Details"
+        },
+        {
+            "id": 3,
+            "name": "Chemical Datasheet"
+        },
+        {
+            "id": 4,
+            "name": "Hazard and Precautionary Statements"
+        }
+        ] 
+    },
+
+
+    "extra_fields": {
+        "CeramChemID": {
+            "type": "text",
+            "value": "",
+            "required": true,
+            "readonly": true,
+            "group_id": 1,
+            "description": "ID at the Chair of Advanced Ceramic Materials."
+            },
+        "ChemicalSchemaVersion": {
+            "type": "text",
+            "value": "",
+            "required": true,
+            "readonly": true,
+            "group_id": 1,
+            "description": "Version of the template that was used to create this entry.."
+            },
+        "CurrentUser": {
+            "type": "text",
+            "value": "",
+            "group_id": 1,
+            "description": "Who uses this chemical right now?"
+            },
+        "CurrentLocation": {
+            "type": "select",
+            "value": "",
+            "group_id": 1,
+            "description": "Where is the chemical located right now?",
+            "options": [
+                "",
+                "Storage 112a",
+                "Storage 112b",
+                "Storage 107a",
+                "Storage 108a",
+                "Hall 3",
+                "Hall 3a",
+                "Hall 3b",
+                "Hall 3c",
+                "Hall 3d",
+                "Hall 3e",
+                "Hall 3f",
+                "Lab. 04a",
+                "Lab. 04b",
+                "Lab. 04c",
+                "Lab. 06",
+                "Lab. 07",
+                "Lab. 08",
+                "Lab. 10a",
+                "Lab. 10b",
+                "Lab. 10c",
+                "Lab. 10d",
+                "Lab. 13",
+                "Lab. 15",
+                "Lab. 16a",
+                "Lab. 16b",
+                "Lab. 304",
+                "Lab. 305",
+                "External"
+            ]
+            },
+        "OpenedOn": {
+            "type": "date",
+            "value": "",
+            "group_id": 1,
+            "description": "When was the chemical opened?"
+            },
+        "Status": {
+            "type": "radio",
+            "value": "",
+            "required": true,
+            "group_id": 1,
+            "description": "Is the chemical unopened or empty? Specify it here.",
+            "options": [
+                "",
+                "Unopened/Sealed",
+                "Opened",
+                "Expired/Contaminated",
+                "Empty"
+            ]
+
+            },
+        "AdditionalInformation": {
+            "type": "text",
+            "value": "",
+            "group_id": 1,
+            "description": "Anything else that comes to mind regarding this chemical."
+            },
+
+
+        "SupplierName": {
+            "type": "text",
+            "value": "",
+            "group_id": 2,
+            "readonly": true,
+            "description": "Where was the chemical ordered from?"
+            },
+        "LOT": {
+            "type": "text",
+            "value": "",
+            "group_id": 2,
+            "readonly": true
+            },
+        "RequestedByName": {
+            "type": "text",
+            "value": "",
+            "group_id": 2,
+            "readonly": true,
+            "description": "Name of the Person who requested it originally."
+            },
+        "OrderedByName": {
+            "type": "text",
+            "value": "",
+            "group_id": 2,
+            "readonly": true,
+            "description": "Name of the Person who ordered it originally."
+            },
+        "OrderedByEmail": {
+            "type": "email",
+            "value": "",
+            "group_id": 2,
+            "readonly": true,
+            "description": "Email of the Person who ordered it originally."
+            },
+        "MassVolumeOrdered": {
+            "type": "number",
+            "value": "",
+            "group_id": 2,
+            "readonly": true,
+            "units": [
+                "g",
+                "mL"
+            ],
+            "description": "Mass or volume that was ordered originally."
+            },
+
+        "ChemicalNameMain": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "required": true,
+            "readonly": true,
+            "description": "Name of the chemical according to the first Pubchem entry."
+            },
+        "IUPACName": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "readonly": true,
+            "description": "Name of the chemical according to IUPAC."
+            },
+        "Purity": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "description": "Purity of the chemical if known."
+            },
+        "MolecularFormula": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "description": "Molecular formula of the chemical if known."
+            },
+        "MolecularWeight": {
+            "type": "number",
+            "value": "",
+            "group_id": 3,
+            "units": [
+                "g/mol"
+            ]
+            },
+        "CAS": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "readonly": true
+            },
+        "PubchemCID": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "readonly": true
+            },
+        "PhysicalDescription": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "readonly": true
+            },
+        "InChI": {
+            "type": "text",
+            "value": "",
+            "group_id": 3,
+            "readonly": true
+            },
+
+        "GHS": {
+            "type": "select",
+            "value": "",
+            "group_id": 4,
+            "allow_multi_values": true,
+            "description": "The standard GHS Pictograms associated with this chemical.",
+            "options": [
+                "None",
+                "Flammable",
+                "Compressed Gas",
+                "Corrosive",
+                "Oxidizing",
+                "Harmful",
+                "Health Hazard",
+                "Toxic",
+                "Explosive"
+              ]
+            },
+        "GHSHazardStatements": {
+            "type": "text",
+            "value": "",
+            "group_id": 4,
+            "description": "All known GHS Hazard Statements, seperated by a semicolon (;)."
+            },
+        "PrecautionaryStatements": {
+            "type": "text",
+            "value": "",
+            "group_id": 4,
+            "description": "All known Precautionary Statements, seperated by a semicolon (;)."
+            }
+    }
+}

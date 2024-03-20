@@ -25,6 +25,54 @@ class Gui_GetSet():
         tabobject.setCurrentIndex(index)
 
 
+    def hide_tab_by_name(self, tab_widget, tab_name):
+        """
+        Hides a tab in a QTabWidget by its object name.
+
+        This function loops through all the tabs in the given QTabWidget, finds the tab with the given object name,
+        and removes it from the QTabWidget. The tab widget, its title, and its icon are stored in a dictionary for later use.
+
+        Args:
+            tab_widget (QTabWidget): The QTabWidget that contains the tab.
+            tab_name (str): The object name of the tab to hide.
+
+        Returns:
+            None
+        """
+        try:
+            for i in range(tab_widget.count()):
+                if tab_widget.widget(i).objectName() == tab_name:
+                    self.hidden_tabs[tab_name] = (tab_widget.widget(i), tab_widget.tabText(i), tab_widget.tabIcon(i))
+                    tab_widget.removeTab(i)
+                    break
+        except:
+            pass
+
+
+    def unhide_tab_by_name(self, tab_widget, tab_name):
+        """
+        Unhides a tab in a QTabWidget by its object name.
+
+        This function checks if a tab with the given object name is stored in the dictionary of hidden tabs.
+        If it is, the function adds the tab back to the given QTabWidget and restores its title and icon.
+
+        Args:
+            tab_widget (QTabWidget): The QTabWidget to add the tab to.
+            tab_name (str): The object name of the tab to unhide.
+
+        Returns:
+            None
+        """
+        try:
+            if tab_name in self.hidden_tabs:
+                widget, title, icon = self.hidden_tabs[tab_name]
+                tab_widget.addTab(widget, title)
+                tab_widget.setTabIcon(tab_widget.indexOf(widget), icon)
+                del self.hidden_tabs[tab_name]
+        except:
+            pass
+
+
     def set_label(self, labelobject, labeltext):
         """
         Sets the text of a label object.

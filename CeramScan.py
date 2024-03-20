@@ -15,8 +15,8 @@ import numpy as np
 from Ui_MainWindow import *
 from Gui_GetSet import *
 
-from PySide6.QtWidgets import QFileDialog
-from PySide6.QtCore import QResource, QDateTime
+from PySide6.QtWidgets import QFileDialog, QComboBox, QRadioButton, QButtonGroup, QDateEdit
+from PySide6.QtCore import QResource, QDateTime, Qt
 
 # For the actual QR Coder
 import qrcode
@@ -40,6 +40,9 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import cairosvg
 import tempfile
+
+# For the REST API
+import requests
 
 # Global folders
 ## The Python folder with the main python file
@@ -72,6 +75,21 @@ except Exception as a:
     f.close()
 
 QResource.registerResource("Resourcefile_rc.py")
+
+# Config File
+try:
+    with open(os.path.join(pythonfolder, "ElabTemplates", "Chemical.json")) as f:
+        global chemicaltemplate
+        chemicaltemplate = json.load(f)
+        print(chemicaltemplate)
+
+except Exception as a:
+    errorpath = os.path.join(outputfolder, "errorlog.txt")
+    with open(errorpath, "a") as f:
+        f.write(str(a) + "\n")
+
+global ceramscanversion
+ceramscanversion = "CeramScan v1.618"
 
 ####################################################################################################################################
 # Gui MainWindow
@@ -111,6 +129,15 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
 
         self.savefolder = outputfolder
 
+        self.hidden_tabs = {}
+
+        # The dictionary for the chemical addition
+        self.DictionarySelf = {}
+
+        self.filledbypubchem = False
+
+        self.chemjson = ""
+
 
         ####################################################################################################################################
         # Load the userid excel table. 
@@ -121,11 +148,17 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
         # Start the program at home and set all tabs to the first position. And some stuff not visible.
         self.Main_tab.setCurrentIndex(0)
         self.Home_tab.setCurrentIndex(0)
+        self.AddChemical_tab.setCurrentIndex(0)
         self.SampleID_tab.setCurrentIndex(0)
+        self.toolBox.setCurrentIndex(0)
         self.Subsample1_spinBox.setVisible(False)
         self.Subsample2_spinBox.setVisible(False)
         self.Subsample3_spinBox.setVisible(False) 
         self.label_11.setVisible(False)
+
+        # Set some tabs to be invisble
+        self.hide_tab_by_name(self.Main_tab, "Chemical_Main_tab")
+        self.hide_tab_by_name(self.AddChemical_tab, "SelectChemical_tab")
 
         # Set the current date
         self.Current_dateEdit.setDateTime(QDateTime(QDate.currentDate(), QTime.currentTime()))
@@ -149,8 +182,11 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
         self.HomeCreate_button.clicked.connect(lambda: self.tabchange(self.Main_tab, 1))
         self.HomeSearch_button.clicked.connect(lambda: self.tabchange(self.Main_tab, 2))
         self.HomeScan_button.clicked.connect(lambda: self.tabchange(self.Main_tab, 3))
+
+        #### Advanced ####
         self.HomeLog_button.clicked.connect(lambda: self.tabchange(self.Main_tab, 4))
         self.HomeAbout_button.clicked.connect(lambda: self.tabchange(self.Main_tab, 5))
+        self.HomeAddChemical_button.clicked.connect(lambda: (self.unhide_tab_by_name(self.Main_tab, "Chemical_Main_tab"), self.fill_scrollarea_from_template(chemicaltemplate, [self.Addchemical_current_scrollarea, self.Addchemical_supplier_scrollarea, self.Addchemical_datasheet_scrollarea, self.Addchemical_hpstatements_scrollarea]), self.tabchange(self.Main_tab, 6)))
 
         #### CreateSampleID ####
         self.SampleID_tab.currentChanged.connect(self.create_sampletable) # Tabchange connect.
@@ -231,6 +267,15 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
 
         #### About ####
 
+
+        #### AddChemical ####
+
+        self.AddChemical_fromID_button.clicked.connect(lambda: (self.create_chemicalfromid(), self.fill_chemdatabase_from_dict([self.Addchemical_datasheet_scrollarea, self.Addchemical_hpstatements_scrollarea]), self.tabchange(self.AddChemical_tab, 1)))
+
+        self.ChemicalAdd_CreateNew_button.setEnabled(False)
+        self.ChemicalAdd_CreatefromOld_button.setEnabled(False)
+
+        self.AddChemicalToElab_button.clicked.connect(lambda: (self.chemicalinfo_to_json([self.Addchemical_current_scrollarea, self.Addchemical_supplier_scrollarea, self.Addchemical_datasheet_scrollarea, self.Addchemical_hpstatements_scrollarea]), self.chemid_to_elabftw()))
 
     ####################################################################################################################################
     # Other functions
@@ -912,7 +957,7 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
                                     {
                                     "type": "text",
                                     "value": str(self.df["SampleID"].iloc[i]),
-                                    "description":"SampleID created by CeramScan v1.618"
+                                    "description":f"SampleID created by {ceramscanversion}"
                                     },
                                 "Date" : 
                                     {
@@ -1018,7 +1063,7 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
                     file.write(image_bytes)
 
                 # upload the file produced before.
-                uploadsApi.post_upload("items", itemId, file = temp_file.name, comment = "Uploaded with CeramScan v1.618 using elabapi.")
+                uploadsApi.post_upload("items", itemId, file = temp_file.name, comment = f"Uploaded with {ceramscanversion} using elabapi.")
                 temp_file.close()
                 os.unlink(temp_file.name)
 
@@ -1192,6 +1237,444 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
         self.Log_textBrowser.append(Timelog)
 
 
+    def fill_scrollarea_from_template(self, json, scroll_areas):
+        """
+        Fills the provided scroll areas with widgets based on the template provided in json_data.
+
+        The function iterates over the 'extra_fields' in the json_data. Depending on the 'type' of each field,
+        it creates a corresponding widget (QLineEdit, QComboBox, or a group of QCheckBoxes/QRadioButtons).
+        These widgets are then added to the layout of the scroll area corresponding to the 'group_id' of the field.
+
+        Parameters:
+        json_data (dict): A dictionary containing the template for the fields.
+        scroll_area1 (QScrollArea): The first scroll area to be filled.
+        scroll_area2 (QScrollArea): The second scroll area to be filled.
+        scroll_area3 (QScrollArea): The third scroll area to be filled.
+        scroll_area4 (QScrollArea): The fourth scroll area to be filled.
+
+        Returns:
+        None
+        """
+        try:
+            for scroll_area in scroll_areas:
+                widget = QWidget()
+                layout = QVBoxLayout()
+                widget.setLayout(layout)
+                scroll_area.setWidget(widget)
+
+            # Get the 'extra_fields' dictionary
+            extra_fields = json['extra_fields']
+
+            # Loop through the 'extra_fields' dictionary
+            for key, value in extra_fields.items():
+
+                if key not in ["CeramChemID"]:
+
+                    # Create a label and a line edit
+                    label = QLabel(key+": ")
+                    
+                    # Create an input field based on the 'type'
+                    if key == "ChemicalSchemaVersion":
+                        input_field = QLabel(str(json["__templateversion__"]))
+                    elif value['type'] in ['text', 'number']:
+                        input_field = QLineEdit(str(value['value']))
+                    elif value['type'] == 'select':
+                        try:
+                            if value['allow_multi_values']:
+                                input_field = QWidget()
+                                checkbox_layout = QHBoxLayout(input_field)
+                                for option in value['options']:
+                                    checkbox = QCheckBox(option)
+                                    checkbox_layout.addWidget(checkbox)
+                            else:
+                                pass
+                        except:
+                            input_field = QComboBox()
+                            input_field.addItems(value['options'])
+                    elif value['type'] == 'radio':
+                        input_field = QComboBox()
+                        input_field.addItems(value['options'])
+                    elif value['type'] == 'email':
+                        input_field = QLineEdit(str(value['value']))
+                    elif value['type'] == 'date':
+                        input_field = QDateEdit()
+                        # Clear the date
+                        input_field.clear()
+    
+                    # Create a horizontal layout and add the label and line edit to it
+                    layout = QHBoxLayout()
+                    layout.addWidget(label)
+                    layout.addWidget(input_field)
+
+                    # Get the 'group_id'
+                    group_id = value['group_id']
+
+                    # Get the scroll area for this 'group_id'
+                    scroll_area = scroll_areas[group_id - 1]
+
+                    # Get the layout for the scroll area
+                    scroll_area_layout = scroll_area.widget().layout()
+
+                    # Add the horizontal layout to the scroll area's layout
+                    scroll_area_layout.addLayout(layout)
+            
+        except:
+            pass
+
+
+    def create_chemicalfromid(self):
+        """
+        Fetches and stores chemical information for a given chemical ID from the PubChem REST API.
+
+        This function constructs a URL using the chemical ID and other global constants, sends a GET request to that URL, 
+        and processes the response. If the request is successful, the function extracts the relevant information from the 
+        response and stores it in a global dictionary. If the request fails, the function prints an error message. If the 
+        response does not contain the expected data, the function prints a message indicating that no data was found for 
+        the given chemical ID.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        # Define constants for the REST API
+        REST_URL = "https://pubchem.ncbi.nlm.nih.gov/rest"
+        DOMAIN = "compound"
+        NAMESPACE = "cid"
+        # Get the chemical ID from the line edit
+        IDENTIFIERS = self.get_lineedit(self.PubChem_lineedit)
+        # Define the properties we want to fetch for the compound
+        COMPOUND_DOMAIN_INPUTS = ["MolecularFormula", "MolecularWeight", "InChI", "IUPACName", "Title"]
+        OUTPUT_SPECIFICATION = "JSON"
+
+        def get_standard_info(compound_domain):
+            """
+            Fetches standard information for a given compound domain from the PubChem REST API.
+
+            This function constructs a URL using the compound domain and other global constants, sends a GET request to that URL, 
+            and processes the response. If the request is successful, the function extracts the relevant information from the 
+            response and stores it in a global dictionary. If the request fails, the function prints an error message. If the 
+            response does not contain the expected data, the function prints a message indicating that no data was found for 
+            the given compound domain.
+
+            Args:
+                compound_domain (str): The domain of the compound for which to fetch information.
+
+            Returns:
+                None
+            """
+            # Construct the URL for the GET request
+            output_url = f"{REST_URL}/pug/{DOMAIN}/{NAMESPACE}/{IDENTIFIERS}/property/{compound_domain}/{OUTPUT_SPECIFICATION}"
+            try:
+                # Send the GET request
+                response = requests.get(output_url)
+                # Raise an exception if the request failed
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as err:
+                # Print the HTTP error if one occurred
+                print(f"HTTP error occurred: {err}")
+            except Exception as err:
+                # Print any other exceptions that occurred
+                print(f"An error occurred: {err}")
+            else:
+                # Parse the response as JSON
+                jsonresponse = response.json()
+                try:
+                    # Store the relevant information in a global dictionary
+                    self.DictionarySelf[compound_domain] = {"Value" : jsonresponse["PropertyTable"]["Properties"][0][compound_domain], "Group": "ChemicalDatasheet"}
+                except :
+                    # Print a message if no data was found for the given compound domain
+                    print("No data for ", compound_domain)
+
+        def get_additional_info():
+            """
+            Fetches additional information for a given compound from the PubChem REST API.
+
+            This function constructs a URL using global constants, sends a GET request to that URL, 
+            and processes the response. If the request is successful, the function extracts the relevant 
+            information from the response and stores it in a global dictionary. If the request fails, 
+            the function prints an error message. If the response does not contain the expected data, 
+            the function prints a message indicating that no data was found.
+
+            Args:
+                None
+
+            Returns:
+                None
+            """
+            # Construct the URL for the GET request
+            additional_url = f"{REST_URL}/pug_view/data/{DOMAIN}/{IDENTIFIERS}/JSON/?response_type=display"
+            
+            try:
+                # Send the GET request
+                response = requests.get(additional_url)
+                # Raise an exception if the request failed
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as err:
+                # Print the HTTP error if one occurred
+                print(f"HTTP error occurred: {err}")
+            except Exception as err:
+                # Print any other exceptions that occurred
+                print(f"An error occurred: {err}")
+            else:
+                # Parse the response as JSON
+                jsonresponse = response.json()
+                # Initialize variables to store GHS hazard and precautionary statements and symbols
+                ghs_hazard_statements = ""
+                ghs_precautionary_statements = ""
+                ghs_symbols = []
+
+                try:
+                    # Store the main chemical name in a global dictionary
+                    self.DictionarySelf["ChemicalNameMain"] = {"Value" : jsonresponse["Record"]["RecordTitle"], "Group": "ChemicalDatasheet"}
+                except:
+                    # Print a message if no data was found for the main chemical name
+                    print("No data for ChemicalNameMain")
+
+                try:
+                    # Store the PubChem CID in a global dictionary
+                    self.DictionarySelf["PubchemCID"] =  {"Value" : jsonresponse["Record"]["RecordNumber"], "Group": "ChemicalDatasheet"}
+                except:
+                    # Print a message if no data was found for the PubChem CID
+                    print("No data for PubchemCID")
+
+                # Loop through the sections in the response
+                for i, entry in enumerate(jsonresponse["Record"]["Section"]):
+
+                    try:
+                        # Check if the section is the "Chemical Safety" section
+                        if entry["TOCHeading"] == "Chemical Safety":
+                            # Loop through the GHS data in the section
+                            for ghs in entry["Information"][0]["Value"]["StringWithMarkup"][0]["Markup"]:
+                                # Append the GHS symbol to the list of symbols
+                                ghs_symbols.append(ghs["Extra"])
+                            # Store the GHS symbols in a global dictionary
+                            self.DictionarySelf["GHS"] =  {"Value" : ghs_symbols, "Group": "ChemicalDatasheet"}   
+                        
+                        # Check if the section is the "Safety and Hazards" section
+                        if entry["TOCHeading"] == "Safety and Hazards":
+                            # Loop through the sub-sections in the section
+                            for subentry in entry["Section"]:
+                                # Check if the sub-section is the "Hazards Identification" sub-section
+                                if subentry["TOCHeading"] == "Hazards Identification":
+                                    # Loop through the sub-sub-sections in the sub-section
+                                    for subsubentry in subentry["Section"]:
+                                        # Check if the sub-sub-section is the "GHS Classification" sub-sub-section
+                                        if subsubentry["TOCHeading"] == "GHS Classification":
+                                            # Loop through the sub-sub-sub-sections in the sub-sub-section
+                                            for subsubsubentry in subsubentry["Information"]:
+                                                # Check if the sub-sub-sub-section is the "GHS Hazard Statements" sub-sub-sub-section
+                                                if subsubsubentry["Name"] == "GHS Hazard Statements":
+                                                    # Check if the GHS hazard statements have not been initialized
+                                                    if ghs_hazard_statements == "":
+                                                        # Loop through the hazard statements in the sub-sub-sub-section
+                                                        for Hstatement in subsubsubentry["Value"]["StringWithMarkup"]:
+                                                            # Append the hazard statement to the GHS hazard statements
+                                                            ghs_hazard_statements += Hstatement["String"].replace("[", "").replace("]", "") + "; "
+                                                # Check if the sub-sub-sub-section is the "Precautionary Statement Codes" sub-sub-sub-section
+                                                if subsubsubentry["Name"] == "Precautionary Statement Codes":
+                                                    # Check if the GHS precautionary statements have not been initialized
+                                                    if ghs_precautionary_statements == "":
+                                                        # Loop through the precautionary statements in the sub-sub-sub-section
+                                                        for Pstatement in subsubsubentry["Value"]["StringWithMarkup"]:
+                                                            # Check if the precautionary statement is the end of the list
+                                                            if "(The corresponding statement to each P-code" in Pstatement["String"]:
+                                                                # Break the loop if the end of the list has been reached
+                                                                break
+                                                            # Append the precautionary statement to the GHS precautionary statements
+                                                            ghs_precautionary_statements += Pstatement["String"].replace("[", "").replace("]", "").replace(",", ";").replace("and ", "") + "; "
+                                                            
+                            # Store the GHS hazard statements in a global dictionary
+                            self.DictionarySelf["GHSHazardStatements"] = {"Value" : ghs_hazard_statements, "Group": "ChemicalDatasheet"}
+                            # Store the GHS precautionary statements in a global dictionary
+                            self.DictionarySelf["PrecautionaryStatements"] = {"Value" : ghs_precautionary_statements, "Group": "ChemicalDatasheet"}
+
+                    except:
+                        # Print a message if no data was found for GHS
+                        print("No data for GHS")
+
+                    # Try block to handle potential exceptions
+                    try:
+                        # Check if the section is the "Names and Identifiers" section
+                        if entry["TOCHeading"] == "Names and Identifiers":
+                            # Loop through the identifiers in the section
+                            for identifier in entry["Section"]:
+                                # Check if the identifier is the "Record Description" identifier
+                                if identifier["TOCHeading"] == "Record Description":
+                                    # Loop through the record identifiers in the identifier
+                                    for record_identifier in identifier["Information"]: 
+                                        # Check if the record identifier is the "Physical Description" record identifier
+                                        if record_identifier["Description"] == "Physical Description":
+                                            # Store the physical description in a global dictionary
+                                            self.DictionarySelf["PhysicalDescription"] = {"Value" : record_identifier["Value"]["StringWithMarkup"][0]["String"], "Group": "ChemicalDatasheet"}
+                                            # Break the loop after storing the physical description
+                                            break
+
+                                # Check if the identifier is the "Other Identifiers" identifier
+                                elif identifier["TOCHeading"] == "Other Identifiers":
+                                    # Loop through the other identifiers in the identifier
+                                    for other_identifier in identifier["Section"]:                                
+                                        # Check if the other identifier is the "CAS" other identifier
+                                        if other_identifier["TOCHeading"] == "CAS":
+                                            # Store the CAS number in a global dictionary
+                                            self.DictionarySelf["CAS"] = {"Value" : other_identifier["Information"][0]["Value"]["StringWithMarkup"][0]["String"], "Group": "ChemicalDatasheet"}
+                                            # Break the loop after storing the CAS number
+                                            break  
+
+                    # Exception handling block
+                    except Exception as e:
+                        # Print the exception if one occurred
+                        print(e)  
+
+        # Call the seperate info functions.
+        for compound_domain in COMPOUND_DOMAIN_INPUTS:
+            get_standard_info(compound_domain)
+        get_additional_info()
+
+
+    def fill_chemdatabase_from_dict(self, scroll_areas):
+        """
+        Fills the widgets in the provided scroll areas with data from the instance's DictionarySelf attribute.
+
+        This function iterates over each scroll area provided. For each scroll area, it retrieves the layout and 
+        iterates over each item in the layout. It checks the type of each widget in the layout and sets its value 
+        based on the corresponding value in DictionarySelf.
+
+        Parameters:
+        scroll_areas (list): A list of QScrollArea objects to be filled with data.
+
+        """
+
+        for scrollarea in scroll_areas:
+            widget = scrollarea.widget()
+            layout = widget.layout()
+            for i in range(layout.count()):
+                hbox_layout = layout.itemAt(i)
+
+                if hbox_layout is not None:  # Check if the layout item is a layout
+                    widget1 = hbox_layout.itemAt(0).widget()
+                    widget2 = hbox_layout.itemAt(1).widget()
+
+                try:
+                    if isinstance(widget2, QLabel):
+                        widget2.setText(str(self.DictionarySelf[widget1.text().split(":")[0]]["Value"]))
+                    elif isinstance(widget2, QLineEdit):
+                        widget2.setText(str(self.DictionarySelf[widget1.text().split(":")[0]]["Value"]))
+                    elif isinstance(widget2, QWidget):
+
+                        checkboxes = widget2.findChildren(QCheckBox,"", Qt.FindChildrenRecursively)
+                        for checkbox in checkboxes:
+                            print(checkbox.text())
+                            if checkbox.text() in self.DictionarySelf[widget1.text().split(":")[0]]["Value"]:
+                                checkbox.setChecked(True)
+                            else:
+                                checkbox.setChecked(False)
+
+                except:
+                    pass
+        
+        self.filledbypubchem = True
+
+    def chemicalinfo_to_json(self, scroll_areas):
+
+        self.chemjson = chemicaltemplate
+
+        for scrollarea in scroll_areas:
+            widget = scrollarea.widget()
+            layout = widget.layout()
+            for i in range(layout.count()):
+                hbox_layout = layout.itemAt(i)
+
+                if hbox_layout is not None:  # Check if the layout item is a layout
+                    widget1 = hbox_layout.itemAt(0).widget()
+                    widget2 = hbox_layout.itemAt(1).widget()
+
+                try:
+                    if isinstance(widget2, QLabel):
+                        pass
+
+                    elif isinstance(widget2, QLineEdit):
+                        self.chemjson["extra_fields"][widget1.text().split(":")[0]]["value"] = widget2.text()
+
+                    elif isinstance(widget2, QDateEdit):
+                        if widget2.date().toString("yyyy-MM-dd") == "2000-01-01":
+                            self.chemjson["extra_fields"][widget1.text().split(":")[0]]["value"] = ""
+                        else:
+                            self.chemjson["extra_fields"][widget1.text().split(":")[0]]["value"] = widget2.date().toString("yyyy-MM-dd")
+                    elif isinstance(widget2, QWidget):
+                        try:
+                            if self.chemjson["extra_fields"][widget1.text().split(":")[0]]["allow_multi_values"]:
+                                checkboxes = widget2.findChildren(QCheckBox,"", Qt.FindChildrenRecursively)
+                                val = [] 
+                                for checkbox in checkboxes:
+                                    if checkbox.isChecked():
+                                        val.append(checkbox.text())
+                                    else:
+                                        pass
+                            else:
+                                pass
+                        except:
+                            self.chemjson["extra_fields"][widget1.text().split(":")[0]]["value"] = widget2.currentText()           
+                except:
+                    pass
+
+                try:
+                    self.chemjson["extra_fields"]["ChemicalSchemaVersion"]["value"] = self.chemjson["__templateversion__"]
+                except:
+                    pass
+        
+        print(self.chemjson)
+
+
+    def chemid_to_elabftw(self):
+
+        if self.chemjson != "":
+
+            if self.filledbypubchem:
+                self.chemjson["extra_fields"]["PubchemDisclaimer"] = {"type": "text", "value": "Some data was fetched from Pubchem and should be verified/handled with caution.", "description": "Disclaimer for PubChem data", "group_id": 1, "readonly": True}
+                
+
+            # These lines configure the eLabFTW API client using the provided API key and base URL. It also sets additional configurations, such as disabling SSL verification and debugging.
+            configuration = elabapi_python.Configuration()
+            configuration.api_key['api_key'] = configdict["API_Key"]
+            configuration.api_key_prefix['api_key'] = 'Authorization'
+            configuration.host = configdict["ElabFTW_URL"]
+            configuration.debug = False
+            configuration.verify_ssl = False
+
+            # This creates an instance of the eLabFTW API client (api_client) with the specified configuration. It also fixes an issue related to the Authorization header not being properly set by the generated library.
+            api_client = elabapi_python.ApiClient(configuration)
+            api_client.set_default_header(header_name='Authorization', header_value=configdict["API_Key"])
+
+            # This line initializes the ItemsApi class using the configured API client. It provides an interface for working with eLabFTW items.
+            itemsApi = elabapi_python.ItemsApi(api_client)
+
+            # Disable SSL warnings
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+            # This section demonstrates creating a new item with the specified category and tags. It then retrieves the newly created item's ID from the response and modifies its title, body, and rating.
+            targetCategory = configdict["Chem_ID"]
+            tags = [self.chemjson["extra_fields"]["ChemicalNameMain"]["value"], self.chemjson["extra_fields"]["IUPACName"]["value"], self.chemjson["extra_fields"]["CAS"]["value"], self.chemjson["extra_fields"]["PubchemCID"]["value"]]
+            response = itemsApi.post_item_with_http_info(body={'category_id': targetCategory, 'tags': tags})
+            locationHeaderInResponse = response[2].get('Location')
+            itemId = int(locationHeaderInResponse.split('/').pop())
+
+            # Add the CeramChemID to the metadata
+            self.chemjson["extra_fields"]["CeramChemID"]["value"] = "CHEM" + str(itemId)
+
+            # Update the item with the CeramChemID and extra fields.
+            title = self.chemjson["extra_fields"]["CeramChemID"]["value"] + " - " + self.chemjson["extra_fields"]["ChemicalNameMain"]["value"]
+    
+            itemsApi.patch_item(itemId, body={'title': title, 'body': "", "metadata" : json.dumps(self.chemjson)})
+
+            # Log
+            self.create_log("Saved Chemical to elabFTW at: " + locationHeaderInResponse)
+            self.set_label(self.AddChemicalResponse_label, "Created chemical with ID: " + self.chemjson["extra_fields"]["CeramChemID"]["value"])
+
+        else:
+            self.create_log("No chemical data available.")
+                
 ####################################################################################################################################
 ####################################################################################################################################
 

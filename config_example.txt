@@ -1,0 +1,7 @@
+API_Key = Test
+Category_ID = 6
+ElabFTW_URL = https://xyz/api/v2/
+Institution = YOUR INSTITUTION
+StartingYear = 2011
+Standard Output folder = 
+LinkID = https://loremipsum

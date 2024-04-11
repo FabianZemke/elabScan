@@ -1,0 +1,7 @@
+[Errno 2] No such file or directory: '/home/fz/Documents/elabScan/elabScan/config.txt'
+'LinkID'
+HTTP Error 404: Not Found
+PySide6.QtCore.QObject.connect(): not enough arguments
+PySide6.QtCore.QObject.connect(): not enough arguments
+PySide6.QtCore.QObject.connect(): not enough arguments
+PySide6.QtCore.QObject.connect(): not enough arguments

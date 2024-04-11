@@ -2,6 +2,8 @@
 import sys
 import os
 
+from urllib.error import HTTPError
+
 # For logging errors.
 #import logging
 #import time
@@ -88,8 +90,8 @@ except Exception as a:
     with open(errorpath, "a") as f:
         f.write(str(a) + "\n")
 
-global ceramscanversion
-ceramscanversion = "CeramScan v1.618"
+global elabscanversion
+elabscanversion = "elabScan v1.6180"
 
 ####################################################################################################################################
 # Gui MainWindow
@@ -140,9 +142,18 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
 
 
         ####################################################################################################################################
-        # Load the userid excel table. 
-        userid = pd.read_excel(str(configdict["LinkID"]),"userid")
-        userid = userid.apply(lambda x: x.astype(str).str.upper())
+        # Load the userid excel table.
+        try:
+            userid = pd.read_excel(str(configdict["LinkID"]),"userid")
+            userid = userid.apply(lambda x: x.astype(str).str.upper())
+        except HTTPError as e:
+            userid = pd.DataFrame()
+            print(f"The userid table could not be reached: {e}")
+            
+        except Exception as e:
+            userid = pd.DataFrame()
+            print("Something wrong with the UserID table", e)
+            pass
 
         ####################################################################################################################################
         # Start the program at home and set all tabs to the first position. And some stuff not visible.
@@ -271,6 +282,8 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
         #### AddChemical ####
 
         self.AddChemical_fromID_button.clicked.connect(lambda: (self.create_chemicalfromid(), self.fill_chemdatabase_from_dict([self.Addchemical_datasheet_scrollarea, self.Addchemical_hpstatements_scrollarea]), self.tabchange(self.AddChemical_tab, 1)))
+        self.AddChemical_tab.currentChanged.connect(lambda: (self.fill_scrollarea_from_template(chemicaltemplate, [self.Addchemical_current_scrollarea, self.Addchemical_supplier_scrollarea, self.Addchemical_datasheet_scrollarea, self.Addchemical_hpstatements_scrollarea])) if self.AddChemical_tab.currentIndex() == 0 else (print("AddChemical Tab Changed")))
+
 
         self.ChemicalAdd_CreateNew_button.setEnabled(False)
         self.ChemicalAdd_CreatefromOld_button.setEnabled(False)
@@ -957,7 +970,7 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
                                     {
                                     "type": "text",
                                     "value": str(self.df["SampleID"].iloc[i]),
-                                    "description":f"SampleID created by {ceramscanversion}"
+                                    "description":f"SampleID created by {elabscanversion}"
                                     },
                                 "Date" : 
                                     {
@@ -1045,34 +1058,40 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
 
         for i, elab in enumerate(self.elablist):
             if self.df["ElabList"].iloc[i]:
-                print(elab["metadata"])
+                try:
+                    print(elab["metadata"])
 
-                # This section demonstrates creating a new item with the specified category and tags. It then retrieves the newly created item's ID from the response and modifies its title, body, and rating.
-                targetCategory = configdict["Category_ID"]
-                response = itemsApi.post_item_with_http_info(body={'category_id': targetCategory, 'tags': elab["tags"]})
-                locationHeaderInResponse = response[2].get('Location')
-                itemId = int(locationHeaderInResponse.split('/').pop())
-                itemsApi.patch_item(itemId, body={'title': elab["title"], 'body': elab["body"], "metadata" : json.dumps(elab["metadata"])}) #, 'rating': 5
+                    # This section demonstrates creating a new item with the specified category and tags. It then retrieves the newly created item's ID from the response and modifies its title, body, and rating.
+                    targetCategory = configdict["Category_ID"]
+                    response = itemsApi.post_item_with_http_info(body={'category_id': targetCategory, 'tags': elab["tags"]})
+                    locationHeaderInResponse = response[2].get('Location')
+                    itemId = int(locationHeaderInResponse.split('/').pop())
+                    itemsApi.patch_item(itemId, body={'title': elab["title"], 'body': elab["body"], "metadata" : json.dumps(elab["metadata"])}) #, 'rating': 5
 
-                # Create a temporary file.
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png") 
-                with open(temp_file.name, 'wb') as file:
-                    image_bytes_io = io.BytesIO()
-                    self.qrlist[i].save(image_bytes_io, format="PNG")
-                    image_bytes = image_bytes_io.getvalue()
-                    file.write(image_bytes)
+                    # Create a temporary file.
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png") 
+                    with open(temp_file.name, 'wb') as file:
+                        image_bytes_io = io.BytesIO()
+                        self.qrlist[i].save(image_bytes_io, format="PNG")
+                        image_bytes = image_bytes_io.getvalue()
+                        file.write(image_bytes)
 
-                # upload the file produced before.
-                uploadsApi.post_upload("items", itemId, file = temp_file.name, comment = f"Uploaded with {ceramscanversion} using elabapi.")
-                temp_file.close()
-                os.unlink(temp_file.name)
+                    # upload the file produced before.
+                    uploadsApi.post_upload("items", itemId, file = temp_file.name, comment = f"Uploaded with {elabscanversion} using elabapi.")
+                    temp_file.close()
+                    os.unlink(temp_file.name)
 
-                print(f'The newly created item is here: {locationHeaderInResponse}')
+                    print(f'The newly created item is here: {locationHeaderInResponse}')
 
-                # Log
-                self.create_log("Saved sample "+ str(self.df["SampleID"].iloc[i]) + " to elabFTW at: " + locationHeaderInResponse)
-                self.set_label(self.ElabFTWOutput1_label, "Success: ")
-                self.set_label(self.ElabFTWOutput2_label, "Saved sample "+ str(self.df["SampleID"].iloc[i]) + " to elabFTW.")
+                    # Log
+                    self.create_log("Saved sample "+ str(self.df["SampleID"].iloc[i]) + " to elabFTW at: " + locationHeaderInResponse)
+                    self.set_label(self.ElabFTWOutput1_label, "Success: ")
+                    self.set_label(self.ElabFTWOutput2_label, "Saved sample "+ str(self.df["SampleID"].iloc[i]) + " to elabFTW.")
+                except Exception as e:
+                    # Log
+                    self.create_log("Error: " + str(e))
+                    self.set_label(self.ElabFTWOutput1_label, "Error: ")
+                    self.set_label(self.ElabFTWOutput2_label, str(e))
 
 
     def print_qrcodes(self):
@@ -1577,7 +1596,7 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
         self.filledbypubchem = True
 
     def chemicalinfo_to_json(self, scroll_areas):
-
+        #!!!
         self.chemjson = chemicaltemplate
 
         for scrollarea in scroll_areas:
@@ -1618,7 +1637,6 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
                             self.chemjson["extra_fields"][widget1.text().split(":")[0]]["value"] = widget2.currentText()           
                 except:
                     pass
-
                 try:
                     self.chemjson["extra_fields"]["ChemicalSchemaVersion"]["value"] = self.chemjson["__templateversion__"]
                 except:
@@ -1653,7 +1671,8 @@ class Gui(QMainWindow, Ui_MainWindow, Gui_GetSet): #, MainWindow
             # Disable SSL warnings
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-            # This section demonstrates creating a new item with the specified category and tags. It then retrieves the newly created item's ID from the response and modifies its title, body, and rating.
+            # This section demonstrates creating a new item with the specified category and tags. It then retrieves the newly created item's ID from the response and modifies its title, body, and rating. 
+            #!!!
             targetCategory = configdict["Chem_ID"]
             tags = [self.chemjson["extra_fields"]["ChemicalNameMain"]["value"], self.chemjson["extra_fields"]["IUPACName"]["value"], self.chemjson["extra_fields"]["CAS"]["value"], self.chemjson["extra_fields"]["PubchemCID"]["value"]]
             response = itemsApi.post_item_with_http_info(body={'category_id': targetCategory, 'tags': tags})

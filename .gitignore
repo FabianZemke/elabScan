@@ -1,4 +1,5 @@
 config.txt
+Output/errorlog.txt
 __pycache__/Gui_GetSet.cpython-311.pyc
 __pycache__/Resourcefile_rc.cpython-311.pyc
 __pycache__/Ui_MainWindow.cpython-311.pyc
